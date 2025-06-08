@@ -1,0 +1,173 @@
+import subprocess
+import datetime
+import webbrowser
+import wikipedia
+import speech_recognition as sr
+import pyttsx3
+import os
+import random
+import pygame  # Added pygame for music control
+
+# === Initialize Text-to-Speech ===
+engine = pyttsx3.init()
+engine.setProperty('rate', 160)
+voices = engine.getProperty('voices')
+if voices:
+    engine.setProperty('voice', voices[0].id)
+
+def speak(text):
+    if len(text) > 150:  # Trim long replies
+        text = text[:150].rsplit('.', 1)[0] + '.'
+    print(f"Cyrus: {text}")
+    engine.say(text)
+    engine.runAndWait()
+
+def listen_command():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Listening...")
+        recognizer.pause_threshold = 0.5  # Quicker pause
+        audio = recognizer.listen(source, phrase_time_limit=4)  # Shorter duration
+    try:
+        command = recognizer.recognize_google(audio, language='en-US')
+        print(f"You said: {command}")
+        return command.lower()
+    except sr.UnknownValueError:
+        speak("Sorry, I didn't catch that.")
+        return ""
+    except sr.RequestError:
+        speak("Speech service is unavailable.")
+        return ""
+
+def ask_ollama(prompt):
+    try:
+        result = subprocess.run(
+            [
+                r"C:\Users\ABHAYA\AppData\Local\Programs\Ollama\ollama.exe",
+                "run",
+                "tinyllama"
+            ],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            shell=True
+        )
+        if result.returncode != 0:
+            print("⚠️ Ollama Error:", result.stderr)
+            return "Sorry, I couldn't get a response."
+        return result.stdout.strip().split('\n')[0]  # Return only first line
+    except Exception as e:
+        return f"Error communicating with TinyLlama: {e}"
+
+def tell_time():
+    now = datetime.datetime.now().strftime("%I:%M %p")
+    speak(f"The time is {now}")
+
+def search_wikipedia(query):
+    try:
+        summary = wikipedia.summary(query, sentences=1)  # Only 1 sentence
+        speak(f"According to Wikipedia: {summary}")
+    except wikipedia.DisambiguationError:
+        speak("That has multiple meanings. Can you be more specific?")
+    except wikipedia.PageError:
+        speak("No Wikipedia page found.")
+    except:
+        speak("Wikipedia search failed.")
+
+def open_google(query):
+    url = f"https://www.google.com/search?q={query}"
+    speak(f"Searching Google for {query}")
+    webbrowser.open(url)
+
+def open_youtube():
+    speak("Opening YouTube")
+    webbrowser.open("https://www.youtube.com")
+
+def play_music():
+    music_folder = r"C:\Users\ABHAYA\apci\shaky"  # ← Change this path if needed
+    if not os.path.exists(music_folder):
+        speak("Music folder not found.")
+        return
+
+    songs = [file for file in os.listdir(music_folder) if file.endswith(('.mp3', '.wav'))]
+    if not songs:
+        speak("No music files found in the folder.")
+        return
+
+    song_to_play = random.choice(songs)
+    song_path = os.path.join(music_folder, song_to_play)
+    speak(f"Playing {song_to_play} ")
+
+    # Initialize pygame mixer and play song
+    pygame.mixer.init()
+    pygame.mixer.music.load(song_path)
+    pygame.mixer.music.play()
+
+    # Wait for 30 seconds while playing
+    pygame.time.wait(30000)
+
+    # Stop playback
+    pygame.mixer.music.stop()
+    pygame.mixer.quit()
+
+# === Dictionary of Q&A ===
+qa_dictionary = {
+    "who are you": "Hello, I’m CYRUS, your cognitive AI support system.",
+    "what is your name": "I am called cyrus.",
+    "who created you": "I was created by an amazing student team at government college of engineering kannur.",
+    "what can you do": "I can tell the time, search Wikipedia, open Google or YouTube, play music, answer questions, and more!",
+    "hello": "Hello! How can I help you today?",
+    "hey": "Hello! How can I help you today?",
+    "hi": "Hi there! I'm ready to assist you.",
+    "how are you": "I'm functioning perfectly. Thanks for asking!",
+    "tell me a joke": "Why don’t programmers like nature? It has too many bugs! hahahahaha",
+    "what is python": "Python is a powerful, high-level programming language used for web development, data science, automation, and more."
+}
+
+def process_command(query):
+    if query == "":
+        return
+
+    # === Dictionary Check First ===
+    if query in qa_dictionary:
+        speak(qa_dictionary[query])
+        return
+
+    elif "time" in query:
+        tell_time()
+    elif "wikipedia" in query:
+        topic = query.replace("wikipedia", "").strip()
+        if topic:
+            search_wikipedia(topic)
+        else:
+            speak("What should I search on Wikipedia?")
+    elif "google" in query:
+        topic = query.replace("google", "").strip()
+        if topic:
+            open_google(topic)
+        else:
+            speak("What should I search on Google?")
+    elif "youtube" in query:
+        open_youtube()
+    elif "music" in query or "song" in query:
+        play_music()
+    elif "weather" in query:
+        speak("Checking the weather...")
+        response = ask_ollama("What's the weather like today?")
+        speak(response)
+    elif any(word in query for word in ["exit", "quit", "stop", "goodbye", "bye"]):
+        speak("Goodbye!")
+        exit()
+    else:
+        speak("Let me think...")
+        response = ask_ollama(query)
+        speak(response)
+
+def main():
+    speak("Hello, I’m CYRUS, your cognitive AI support system.")
+    while True:
+        query = listen_command()
+        process_command(query)
+
+if __name__ == "__main__":
+    main()
