@@ -9,15 +9,17 @@ import random
 import pygame  # For music control
 import threading
 import time
+import requests
 
 # === Initialize Text-to-Speech ===
-engine = pyttsx3.init()
-engine.setProperty('rate', 160)
-voices = engine.getProperty('voices')
-if voices:
-    engine.setProperty('voice', voices[0].id)
+# engine = pyttsx3.init()
+# engine.setProperty('rate', 160)
+# voices = engine.getProperty('voices')
+# if voices:
+#     engine.setProperty('voice', voices[0].id)
 
 def speak(text):
+    print(text)
     # Break long text into 2-4 sentence chunks max
     sentences = [s.strip() for s in text.replace('\n', ' ').split('.') if s.strip()]
     max_sentences = 4
@@ -33,15 +35,38 @@ def speak(text):
 
     for chunk_text in output_chunks:
         print(f"Cyrus: {chunk_text}")
-        engine.say(chunk_text)
-        engine.runAndWait()
+        # Send to Piper HTTP API
+        try:
+            response = requests.post(
+                'http://192.168.31.17:10200/api/text-to-speech?voice=en_US-lessac-medium',
+                data=chunk_text.encode('utf-8'),
+                headers={'Content-Type': 'text/plain'}
+            )
+            # response = requests.post(
+            #     'http://192.168.31.17:10200/api/text-to-speech',
+            #     json={"text": chunk_text, "voice": "en_US-amy-low"}  # Change voice as needed
+            # )
+            if response.ok:
+                with open("piper_output.wav", "wb") as f:
+                    f.write(response.content)
+                # Play the audio
+                pygame.mixer.init()
+                pygame.mixer.music.load("piper_output.wav")
+                pygame.mixer.music.play()
+                while pygame.mixer.music.get_busy():
+                    time.sleep(0.1)
+                pygame.mixer.quit()
+            else:
+                print("Piper error:", response.text)
+        except Exception as e:
+            print("Piper request failed:", e)
 
 def listen_command():
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         print("Listening...")
-        recognizer.pause_threshold = 0.5  # Quicker pause
-        audio = recognizer.listen(source, phrase_time_limit=4)  # Shorter duration
+        recognizer.pause_threshold = 0.
+        audio = recognizer.listen(source, phrase_time_limit=4) 
     try:
         command = recognizer.recognize_google(audio, language='en-US')
         print(f"You said: {command}")
@@ -59,9 +84,9 @@ def ask_ollama(prompt):
     try:
         result = subprocess.run(
             [
-                r"C:\Users\ABHAYA\AppData\Local\Programs\Ollama\ollama.exe",
+                r"/usr/bin/ollama",
                 "run",
-                "tinyllama"
+                "gemma3:1b"
             ],
             input=prompt,
             capture_output=True,
@@ -207,31 +232,31 @@ def process_command(query):
         speak(qa_dictionary[query])
         return
 
-    elif "time" in query:
-        tell_time()
-    elif "wikipedia" in query:
-        topic = query.replace("wikipedia", "").strip()
-        if topic:
-            search_wikipedia(topic)
-        else:
-            speak("What should I search on Wikipedia?")
-    elif "google" in query:
-        topic = query.replace("google", "").strip()
-        if topic:
-            open_google(topic)
-        else:
-            speak("What should I search on Google?")
-    elif "youtube" in query:
-        open_youtube()
-    elif "music" in query or "song" in query:
-        play_music()
-    elif "weather" in query:
-        speak("Checking the weather...")
-        response = ask_ollama("What's the weather like today?")
-        speak(response)
-    elif any(word in query for word in ["exit", "quit", "stop", "goodbye", "bye"]):
-        speak("Goodbye! Have a great day.")
-        exit()
+    # elif "time" in query:
+    #     tell_time()
+    # elif "wikipedia" in query:
+    #     topic = query.replace("wikipedia", "").strip()
+    #     if topic:
+    #         search_wikipedia(topic)
+    #     else:
+    #         speak("What should I search on Wikipedia?")
+    # elif "google" in query:
+    #     topic = query.replace("google", "").strip()
+    #     if topic:
+    #         open_google(topic)
+    #     else:
+    #         speak("What should I search on Google?")
+    # elif "youtube" in query:
+    #     open_youtube()
+    # elif "music" in query or "song" in query:
+    #     play_music()
+    # elif "weather" in query:
+    #     speak("Checking the weather...")
+    #     response = ask_ollama("What's the weather like today?")
+    #     speak(response)
+    # elif any(word in query for word in ["exit", "quit", "stop", "goodbye", "bye"]):
+    #     speak("Goodbye! Have a great day.")
+    #     exit()
     else:
         speak("Let me think about that.")
         response = ask_ollama(query)
