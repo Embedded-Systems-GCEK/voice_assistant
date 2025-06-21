@@ -3,13 +3,14 @@ import datetime
 import webbrowser
 import wikipedia
 import speech_recognition as sr
-import pyttsx3
 import os
 import random
-import pygame  # For music control
 import threading
 import time
 import requests
+from tts import get_text , play_audio , speak
+from ollama import ask_ollama
+import threading
 
 # === Initialize Text-to-Speech ===
 # engine = pyttsx3.init()
@@ -18,48 +19,6 @@ import requests
 # if voices:
 #     engine.setProperty('voice', voices[0].id)
 
-def speak(text):
-    print(text)
-    # Break long text into 2-4 sentence chunks max
-    sentences = [s.strip() for s in text.replace('\n', ' ').split('.') if s.strip()]
-    max_sentences = 4
-    output_chunks = []
-    chunk = []
-    for sentence in sentences:
-        chunk.append(sentence)
-        if len(chunk) == max_sentences:
-            output_chunks.append('. '.join(chunk) + '.')
-            chunk = []
-    if chunk:
-        output_chunks.append('. '.join(chunk) + '.')
-
-    for chunk_text in output_chunks:
-        print(f"Cyrus: {chunk_text}")
-        # Send to Piper HTTP API
-        try:
-            response = requests.post(
-                'http://192.168.31.17:10200/api/text-to-speech?voice=en_US-lessac-medium',
-                data=chunk_text.encode('utf-8'),
-                headers={'Content-Type': 'text/plain'}
-            )
-            # response = requests.post(
-            #     'http://192.168.31.17:10200/api/text-to-speech',
-            #     json={"text": chunk_text, "voice": "en_US-amy-low"}  # Change voice as needed
-            # )
-            if response.ok:
-                with open("piper_output.wav", "wb") as f:
-                    f.write(response.content)
-                # Play the audio
-                pygame.mixer.init()
-                pygame.mixer.music.load("piper_output.wav")
-                pygame.mixer.music.play()
-                while pygame.mixer.music.get_busy():
-                    time.sleep(0.1)
-                pygame.mixer.quit()
-            else:
-                print("Piper error:", response.text)
-        except Exception as e:
-            print("Piper request failed:", e)
 
 def listen_command():
     recognizer = sr.Recognizer()
@@ -77,33 +36,6 @@ def listen_command():
     except sr.RequestError:
         speak("Speech service is unavailable.")
         return ""
-
-import threading
-
-def ask_ollama(prompt):
-    try:
-        result = subprocess.run(
-            [
-                r"/usr/bin/ollama",
-                "run",
-                "gemma3:1b"
-            ],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            shell=True
-        )
-        if result.returncode != 0:
-            print("⚠️ Ollama Error:", result.stderr)
-            return "Sorry, I couldn't get a response."
-
-        # Return first 2–3 lines for more complete answers
-        lines = [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
-        return ' '.join(lines[:3])  # Join up to 3 lines
-    except Exception as e:
-        return f"Error communicating with TinyLlama: {e}"
-
-
 
 def tell_time():
     now = datetime.datetime.now().strftime("%I:%M %p")
@@ -128,8 +60,6 @@ def open_google(query):
 def open_youtube():
     speak("Opening YouTube")
     webbrowser.open("https://www.youtube.com")
-
-import time  # Ensure this is at the top
 
 def play_music():
     music_folder = r"C:\Users\ABHAYA\apci\shaky"
