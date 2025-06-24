@@ -1,5 +1,5 @@
 import subprocess
-from tts import speak  # Assuming you have a speak function in tts.py
+from assistant import Assistant 
 def ask_ollama(prompt):
     try:
         result = subprocess.run(
@@ -22,8 +22,9 @@ def ask_ollama(prompt):
 
 if __name__ == "__main__":
     # Example usage
+    assistant = Assistant("CYRUS")
     prompt = "What is the capital of France?"
     response = ask_ollama(prompt)
     print("Ollama response:", response)
     # You can then pass this response to the speak function if needed
-    speak(response)
+    assistant.speak(response)

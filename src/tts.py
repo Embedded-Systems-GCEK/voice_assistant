@@ -23,38 +23,6 @@ def play_audio(file="piper_output.wav"):
     pygame.mixer.quit()
 
 
-def speak(text):
-    # Remove unwanted characters
-    clean_text = re.sub(r'[*_`~#>\\-]', '', text)
-    # remove Emojis
-    clean_text = re.sub(r'[\U00010000-\U0010ffff]', '', clean_text)
-    # Break long text into 2-4 sentence chunks max
-    sentences = [s.strip() for s in clean_text.replace('\n', ' ').split('.') if s.strip()]
-    max_sentences = 4
-    
-    output_chunks = []
-    chunk = []
-    for sentence in sentences:
-        chunk.append(sentence)
-        if len(chunk) == max_sentences:
-            output_chunks.append('. '.join(chunk) + '.')
-            chunk = []
-    if chunk:
-        output_chunks.append('. '.join(chunk) + '.')
-
-    for chunk_text in output_chunks:
-        print(f"Cyrus: {chunk_text}")
-        # Send to Piper HTTP API
-        try:
-            response = get_text(chunk_text)
-            if response.ok:
-                save_to_file(response)
-                play_audio()
-            else:
-                print("Piper error:", response.text)
-        except Exception as e:
-            print("Piper request failed:", e)
-
 def get_text(chunk_text):
     try:
         return requests.post(
